@@ -10,3 +10,6 @@ Aimtrainer für Valorant – läuft komplett im Browser (eine HTML-Datei, Three.
 `index.html` im Browser öffnen (für Pointer Lock am besten über einen lokalen Server oder GitHub Pages).
 
 Steuerung: Esc = Pause, R = Neustart.
+
+## Sensitivität
+Yaw pro Maus-Count = 0,07° × Valorant-Sens. Über „Maus kalibrieren“ (10 cm Lineal-Test) wird ein Korrekturfaktor gemessen, falls der Browser die Counts durch Display-Skalierung verfälscht.

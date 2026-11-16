@@ -107,7 +107,8 @@ input[type=color]{width:100%;height:30px;background:#0b1219;border:1px solid #2c
     <h2>Sensitivität</h2>
     <label class="f">Valorant-Sens<input type="number" id="sens" data-k="sens" step="0.01" min="0.01" max="10"><span></span></label>
     <label class="f">Maus-DPI<input type="number" id="dpi" data-k="dpi" step="50" min="100" max="32000"><span></span></label>
-    <label class="f">Kalibrierung<input type="range" data-k="cal" min="0.5" max="2" step="0.01"><output></output></label>
+    <label class="f">Kalibrierung<input type="range" data-k="cal" min="0.25" max="4" step="0.001"><output></output></label>
+    <button class="btn ghost" id="calbtn" style="margin-top:6px;font-size:16px;padding:8px 18px">Maus kalibrieren (10 cm)</button>
     <div class="calc"><div>eDPI<b id="edpi">–</b></div><div>cm / 360°<b id="cm360">–</b></div></div>
     <h2>Sicht & Sound</h2>
     <label class="f">FOV (horiz.)<input type="range" data-k="hfov" min="80" max="120" step="1"><output></output></label>
@@ -119,9 +120,17 @@ input[type=color]{width:100%;height:30px;background:#0b1219;border:1px solid #2c
     <label class="f">Abstand<input type="range" data-k="xhGap" min="0" max="20" step="1"><output></output></label>
     <label class="f">Mittelpunkt<input type="checkbox" data-k="xhDot" style="accent-color:#ff4655;width:20px;height:20px"><span></span></label>
     <div id="prev"><div class="xhw" id="prevx"></div></div>
-    <div class="hint">„Kalibrierung“: Falls sich dein Gefühl im Browser nicht mit Valorant deckt, hier nachjustieren (1,00 = exakt 0,07° × Sens je Maus-Count).</div>
+    <div class="hint">Stimmt das Gefühl nicht exakt mit Valorant überein, nutze „Maus kalibrieren“: Der Browser misst, wie viele Counts auf 10 cm ankommen (Display-Skalierung kann das verfälschen) und rechnet den Faktor aus. 1,000 = exakt 0,07° × Sens je Count. DPI muss stimmen!</div>
   </div>
 </div>
+
+<div id="calov" class="ov"><div class="dlg">
+  <h2>Maus kalibrieren</h2>
+  <div class="sub" id="calmsg" style="margin-bottom:14px;max-width:480px;line-height:1.3">Lege ein Lineal neben die Maus. Klicke auf „Start“, bewege die Maus genau <b>10 cm</b> geradeaus nach rechts und klicke dann einmal mit LMB. Nutzt dein DPI-Wert aus den Einstellungen.</div>
+  <div class="big" id="calcnt" style="font-size:56px">0</div>
+  <div class="hint" style="margin:4px 0 16px">Counts</div>
+  <div class="row"><button class="btn" id="calgo">Start</button><button class="btn ghost" id="calx">Schließen</button></div>
+</div></div>
 
 <div id="pause" class="ov"><div class="dlg">
   <h2>Pause</h2><div class="sub" style="margin-bottom:20px">Weiter geht's per Klick.</div>
@@ -219,7 +228,8 @@ function mat(color,em=0.45){return new THREE.MeshStandardMaterial({color,emissiv
 function makeSphere(p,r,color){
   const m=new THREE.Mesh(sphereGeo,mat(color));
   m.scale.setScalar(r);m.position.copy(p);
-  return {meshes:[m],mesh:m,pos:p.clone(),r,color};
+  m.position.y=Math.max(m.position.y,r+0.3); // nie im Boden
+  return {meshes:[m],mesh:m,pos:m.position.clone(),r,color};
 }
 
 /* Partikel */
@@ -265,7 +275,7 @@ const modes={
     let c,r,k,n=0;
     do{c=ri(0,4);r=ri(0,2);k=c+','+r;n++;}while(this.keys.includes(k)&&n<60);
     this.keys.push(k);
-    const t=makeSphere(new THREE.Vector3((c-2)*3.4,2.1+(r-1)*2.8,-18),0.75,0x2ee6c8);
+    const t=makeSphere(new THREE.Vector3((c-2)*3.4,1.5+r*1.55,-18),0.75,0x2ee6c8);
     t.key=k;addTarget(t);
   },
   hit(t){
@@ -276,7 +286,7 @@ const modes={
   init(){this.prev=new THREE.Vector3(0,2.2,-18);this.spawn();},
   spawn(){
     let p;
-    do{p=new THREE.Vector3(rf(-10,10),rf(0.9,4.6),-18);}while(p.distanceTo(this.prev)<5);
+    do{p=new THREE.Vector3(rf(-10,10),rf(1.2,4.6),-18);}while(p.distanceTo(this.prev)<5);
     this.prev=p;addTarget(makeSphere(p,rf(0.4,0.7),0xff4655));
   },
   hit(t){const b=noteHit(t,1.2);burst(t.mesh.position,t.color);delTarget(t);G.score+=100+b;this.spawn();},update(){}},
@@ -284,7 +294,7 @@ const modes={
   init(){this.prev=new THREE.Vector3(0,2.4,-18);this.spawn();},
   spawn(){
     const a=rf(0,Math.PI*2),d=rf(1.2,3.2);
-    const p=new THREE.Vector3(clamp(this.prev.x+Math.cos(a)*d,-9,9),clamp(this.prev.y+Math.sin(a)*d,1,4.4),-18);
+    const p=new THREE.Vector3(clamp(this.prev.x+Math.cos(a)*d,-9,9),clamp(this.prev.y+Math.sin(a)*d,1.0,4.4),-18);
     this.prev=p;addTarget(makeSphere(p,0.28,0xffd23f));
   },
   hit(t){const b=noteHit(t,1);burst(t.mesh.position,t.color,8,0.08);delTarget(t);G.score+=100+b;this.spawn();},update(){}},
@@ -301,7 +311,7 @@ const modes={
     if(p.x>9){p.x=9;this.vx=-Math.abs(this.vx);}
     if(p.x<-9){p.x=-9;this.vx=Math.abs(this.vx);}
     if(p.y>4.6){p.y=4.6;this.vy=-Math.abs(this.vy);}
-    if(p.y<1){p.y=1;this.vy=Math.abs(this.vy);}
+    if(p.y<1.3){p.y=1.3;this.vy=Math.abs(this.vy);}
     G.elapsed+=dt;
     const h=G.down?cast():null;
     const on=!!(h&&h.object.userData.t===t);
@@ -360,18 +370,42 @@ function sfx(type){
   }catch(e){}
 }
 
+/* ---------- Maus-Kalibrierung ---------- */
+const cal={on:false,sum:0};
+function calStart(){
+  cal.on=true;cal.sum=0;$('#calcnt').textContent='0';
+  $('#calmsg').textContent='Bewege die Maus jetzt genau 10 cm nach rechts (geradeaus, ohne Abheben) und klicke einmal mit LMB.';
+  $('#calgo').textContent='Läuft …';
+  requestLock();
+  setTimeout(()=>{if(cal.on&&!G.lock){cal.on=false;$('#calmsg').textContent='Pointer-Lock ist hier nicht verfügbar – Kalibrierung nur im Pointer-Lock-Modus möglich (z. B. über GitHub Pages / eigenen Tab).';$('#calgo').textContent='Start';}},900);
+}
+function calFinish(){
+  cal.on=false;
+  if(document.pointerLockElement)document.exitPointerLock();
+  const M=Math.abs(cal.sum),E=S.dpi*10/2.54;
+  $('#calgo').textContent='Nochmal';
+  if(M<20){$('#calmsg').textContent='Zu wenig Bewegung gemessen – bitte nochmal.';return;}
+  const f=clamp(E/M,0.25,4);
+  S.cal=+f.toFixed(3);save();
+  const el=document.querySelector('[data-k=cal]');el.value=S.cal;el.dispatchEvent(new Event('input'));
+  $('#calmsg').innerHTML=`Gemessen: <b>${Math.round(M)}</b> Counts · erwartet bei ${S.dpi} DPI: <b>${Math.round(E)}</b><br>Neuer Kalibrierfaktor: <b>${S.cal.toFixed(3)}</b> (${G.raw?'Raw Input aktiv':'Raw Input NICHT aktiv'}, Display-Skalierung ${(window.devicePixelRatio||1).toFixed(2)})`;
+}
+
 /* ---------- Eingabe ---------- */
 function requestLock(){
-  const fb=()=>{try{canvas.requestPointerLock();}catch(e){}};
+  const fb=()=>{G.raw=false;try{canvas.requestPointerLock();}catch(e){}};
   try{
     const p=canvas.requestPointerLock({unadjustedMovement:true});
-    if(p&&p.catch)p.catch(fb);
+    if(p&&p.then)p.then(()=>{G.raw=true;},fb);else G.raw=false;
   }catch(e){fb();}
 }
 document.addEventListener('pointerlockchange',()=>{
   const L=document.pointerLockElement===canvas;
-  if(L){G.lock=true;aim.set(0,0);}
-  else{
+  if(L){
+    G.lock=true;aim.set(0,0);
+    setTimeout(()=>{if(G.raw===false&&G.lock)toast('Raw Input nicht verfügbar: Windows-Mausbeschleunigung („Zeigerbeschleunigung verbessern“) ausschalten, sonst weicht die Sens ab.',7000);},400);
+  }else{
+    if(cal.on){cal.on=false;$('#calmsg').textContent='Abgebrochen. Nochmal versuchen mit „Start“.';$('#calgo').textContent='Start';}
     const was=G.lock;G.lock=false;
     if(was&&(G.phase==='play'||G.phase==='count'))pause();
   }
@@ -379,6 +413,7 @@ document.addEventListener('pointerlockchange',()=>{
 document.addEventListener('pointerlockerror',()=>{G.lock=false;});
 addEventListener('mousemove',e=>{
   if(G.lock){
+    if(cal.on){cal.sum+=e.movementX;$('#calcnt').textContent=Math.round(Math.abs(cal.sum));}
     if(G.phase==='play'||G.phase==='count'){
       const k=0.07*S.sens*S.cal*D2R;
       yaw-=e.movementX*k;pitch-=e.movementY*k;
@@ -390,6 +425,7 @@ addEventListener('mousemove',e=>{
   }
 });
 addEventListener('mousedown',e=>{
+  if(cal.on&&e.button===0&&G.lock){calFinish();return;}
   if(e.button!==0||G.phase!=='play')return;
   G.down=true;
   if(!G.mode.tracking)shoot();
@@ -523,9 +559,12 @@ function derived(){
   $('#cm360').textContent=isFinite(cm)?cm.toFixed(1):'–';
 }
 function bindUI(){
+  $('#calbtn').onclick=()=>{show('#calov',true);$('#calgo').textContent='Start';};
+  $('#calgo').onclick=calStart;
+  $('#calx').onclick=()=>{cal.on=false;if(document.pointerLockElement)document.exitPointerLock();show('#calov',false);};
   document.querySelectorAll('[data-k]').forEach(el=>{
     const k=el.dataset.k;
-    const upd=()=>{const o=el.parentElement.querySelector('output');if(o)o.textContent=(k==='cal'||k==='vol')?(+S[k]).toFixed(2):S[k];};
+    const upd=()=>{const o=el.parentElement.querySelector('output');if(o)o.textContent=(k==='cal')?(+S[k]).toFixed(3):(k==='vol')?(+S[k]).toFixed(2):S[k];};
     if(el.type==='checkbox')el.checked=!!S[k];else el.value=S[k];
     upd();
     el.addEventListener('input',()=>{
